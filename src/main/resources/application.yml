@@ -1,0 +1,54 @@
+# 一个YAML文件实际上是一系列以 --- 线分割的文档，每个文档都被单独解析为一个平坦的（flattened）map。
+# 如果一个YAML文档包含一个spring.profiles关键字，那profiles的值（以逗号分割的profiles列表）将被传入Spring的Environment.acceptsProfiles()方法，
+# 并且如果这些profiles的任何一个被激活，对应的文档被包含到最终的合并中（否则不会）。YAML文档以它们遇到的顺序合并（所以后面的值会覆盖前面的值）。
+# java -jar -Dspring.profiles.active=[profile] somejar.jar  这种方式可以指定生效的profile
+# 在Spring Boot中，你也可以在application.properties里设置生效的profile，例如：spring.profiles.active=production
+
+spring:
+  application:
+    name: cloud-eureka-server
+
+---
+spring:
+  profiles: peer1
+
+server:
+  port: 8761
+  
+eureka:
+  instance:
+    hostname: peer1
+    # 为true表示向eureka server注册时直接使用ip地址而不是hostname，默认为false
+    preferIpAddress: false
+  
+  client:
+    # eureka server本身也是client，下面的属性指定自己是否也要向某个eureka server注册，对于standalone运行的eureka server，一般设为false，如果eureka server嵌入到某个service中，
+    # 那么一般设为true（默认值为true），serviceUrl指定本身即可；但对于集群方式运行的多台eureka server，多台之间要互相注册，以便同步服务注册信息
+    registerWithEureka: false
+    fetchRegistry: false
+    serviceUrl:
+      defaultZone: http://${eureka.instance.hostname}:${server.port}/eureka/
+      #defaultZone: http://peer2:8762/eureka/
+      
+  # 当某个server启动时会尽量到cluster的其他server中拉取instance注册信息，当得到所有instance的信息时，会计算一个每分钟的renewals threashold（默认每个instance是2次，
+  # 但是对于registerWithEureka: false的server来说启动完就会有1次，所以总的值为：1+instance数量×2），随后根据每分钟得到的renew次数来判断，如果上一分钟的renew次数小于了
+  # renewals threashold，就会进入selfPreservation模式，对于一直不发送心跳上来的instance，server也不会删除它的注册信息，并且管理界面会显示如下醒目内容：
+  # EMERGENCY! EUREKA MAY BE INCORRECTLY CLAIMING INSTANCES ARE UP WHEN THEY'RE NOT. RENEWALS ARE LESSER THAN THRESHOLD AND HENCE THE INSTANCES ARE NOT BEING EXPIRED 
+  # JUST TO BE SAFE.
+  # 这个配置默认是true
+  server:
+    enableSelfPreservation: false
+---
+spring:
+  profiles: peer2
+  
+server:
+  port: 8762
+  
+eureka:
+  instance:
+    hostname: peer2
+  
+  client:
+    serviceUrl:
+      defaultZone: http://peer1:8761/eureka/
