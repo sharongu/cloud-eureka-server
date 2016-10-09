@@ -6,7 +6,10 @@
 
 spring:
   application:
-    name: cloud-eureka-server
+    # 编译时会从pom文件里面获取实际值，原理不清楚
+    name: @project.name@
+
+info.version: @project.version@
 
 ---
 spring:
@@ -23,12 +26,15 @@ eureka:
   
   client:
     # eureka server本身也是client，下面的属性指定自己是否也要向某个eureka server注册，对于standalone运行的eureka server，一般设为false，如果eureka server嵌入到某个service中，
-    # 那么一般设为true（默认值为true），serviceUrl指定本身即可；但对于集群方式运行的多台eureka server，多台之间要互相注册，以便同步服务注册信息
-    registerWithEureka: false
-    fetchRegistry: false
+    # 那么一般设为true（默认值为true），serviceUrl指定本身即可；但对于集群方式运行的多台eureka server，多台之间要互相注册，以便同步服务注册信息，另外为了在spring boot admin里面也可以
+    # 监控到eureka server的信息，因此建议自身也进行注册
+    # registerWithEureka: false
+    # fetchRegistry: false
     serviceUrl:
       defaultZone: http://${eureka.instance.hostname}:${server.port}/eureka/
       #defaultZone: http://peer2:8762/eureka/
+    # healthcheck:
+      # enabled: true
       
   # 当某个server启动时会尽量到cluster的其他server中拉取instance注册信息，当得到所有instance的信息时，会计算一个每分钟的renewals threashold（默认每个instance是2次，
   # 但是对于registerWithEureka: false的server来说启动完就会有1次，所以总的值为：1+instance数量×2），随后根据每分钟得到的renew次数来判断，如果上一分钟的renew次数小于了
@@ -52,3 +58,5 @@ eureka:
   client:
     serviceUrl:
       defaultZone: http://peer1:8761/eureka/
+  server:
+    enableSelfPreservation: false
